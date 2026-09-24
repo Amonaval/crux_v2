@@ -38,7 +38,13 @@ jobs:
 
       - name: Install Android SDK 36
         run: |
-          SDKMANAGER="$(find /usr/local/lib/android /opt -type f -name sdkmanager 2>/dev/null | head -1)"
+          SDKMANAGER="$(command -v sdkmanager || true)"
+          if [ -z "$SDKMANAGER" ] && [ -n "${ANDROID_HOME:-}" ]; then
+            SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -maxdepth 3 -type f -name sdkmanager 2>/dev/null | head -1)"
+          fi
+          if [ -z "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find /usr/local/lib/android/sdk/cmdline-tools -maxdepth 3 -type f -name sdkmanager 2>/dev/null | head -1)"
+          fi
           echo "Using sdkmanager: $SDKMANAGER"
           test -n "$SDKMANAGER"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
