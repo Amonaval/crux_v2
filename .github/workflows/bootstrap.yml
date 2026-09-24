@@ -28,6 +28,7 @@ jobs:
           unzip -q crux-play-pilot.zip -d project
           cd project/crux-main
           chmod +x gradlew
+          printf "android.useAndroidX=true\nandroid.enableJetifier=true\n" >> gradle.properties
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
