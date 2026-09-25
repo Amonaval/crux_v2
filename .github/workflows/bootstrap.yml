@@ -6,6 +6,7 @@ on:
     paths:
       - 'crux-play-pilot.zip'
       - 'patches/v0.2/**'
+      - 'patches/v0.2-hotfix.b64'
       - '.github/workflows/bootstrap.yml'
   workflow_dispatch:
 
@@ -30,6 +31,9 @@ jobs:
           cat patches/v0.2/*.b64 | base64 -d > /tmp/crux-v02-patch.zip
           echo "5ae395371844d9e391f878ee7a627199445b24ee9d8b226a4a5be01c5f4dd65e  /tmp/crux-v02-patch.zip" | sha256sum -c -
           unzip -q -o /tmp/crux-v02-patch.zip -d project/crux-main
+          base64 -d patches/v0.2-hotfix.b64 > /tmp/crux-v02-hotfix.zip
+          echo "479c38c91613f61f70c09d4b513d35e9f1e5866061dd6de505b085bba377abfc  /tmp/crux-v02-hotfix.zip" | sha256sum -c -
+          unzip -q -o /tmp/crux-v02-hotfix.zip -d project/crux-main
           cd project/crux-main
           chmod +x gradlew
           printf "android.useAndroidX=true\nandroid.enableJetifier=true\n" >> gradle.properties
