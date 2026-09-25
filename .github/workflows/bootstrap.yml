@@ -1,10 +1,11 @@
-name: Build uploaded Crux project
+name: Build Crux v0.2 pilot
 
 on:
   push:
     branches: [ main ]
     paths:
       - 'crux-play-pilot.zip'
+      - 'patches/v0.2/**'
       - '.github/workflows/bootstrap.yml'
   workflow_dispatch:
 
@@ -22,10 +23,13 @@ jobs:
           test -f crux-play-pilot.zip
           echo "4bbe2ec03f38c6ba7f942e27d0b3697c5487dd0a4a93f1c810d461f705630e2a  crux-play-pilot.zip" | sha256sum -c -
 
-      - name: Expand project
+      - name: Expand project and apply v0.2 patch
         run: |
           mkdir project
           unzip -q crux-play-pilot.zip -d project
+          cat patches/v0.2/*.b64 | base64 -d > /tmp/crux-v02-patch.zip
+          echo "5ae395371844d9e391f878ee7a627199445b24ee9d8b226a4a5be01c5f4dd65e  /tmp/crux-v02-patch.zip" | sha256sum -c -
+          unzip -q -o /tmp/crux-v02-patch.zip -d project/crux-main
           cd project/crux-main
           chmod +x gradlew
           printf "android.useAndroidX=true\nandroid.enableJetifier=true\n" >> gradle.properties
@@ -52,7 +56,6 @@ jobs:
           "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;35.0.0"
 
       - name: Run unit tests
-        continue-on-error: true
         working-directory: project/crux-main
         run: ./gradlew testDebugUnitTest --no-daemon --stacktrace
 
@@ -67,13 +70,13 @@ jobs:
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: crux-debug-apk
+          name: crux-v02-debug-apk
           path: project/crux-main/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
 
       - name: Upload unsigned release AAB
         uses: actions/upload-artifact@v4
         with:
-          name: crux-release-aab-unsigned
+          name: crux-v02-release-aab-unsigned
           path: project/crux-main/app/build/outputs/bundle/release/app-release.aab
           retention-days: 30
