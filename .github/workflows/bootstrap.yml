@@ -9,6 +9,7 @@ on:
       - 'patches/v0.2-hotfix.b64'
       - 'patches/v0.3/**'
       - 'patches/v0.3-hotfix1.b64'
+      - 'patches/v0.3-hotfix2/**'
       - '.github/workflows/bootstrap.yml'
   workflow_dispatch:
 
@@ -46,6 +47,10 @@ jobs:
           base64 -d patches/v0.3-hotfix1.b64 > /tmp/crux-v03-hotfix1.zip
           echo "e2e23df54bfdf564a5653998c7f1f92b63a79b66be6948be0072ea704f3249f0  /tmp/crux-v03-hotfix1.zip" | sha256sum -c -
           unzip -q -o /tmp/crux-v03-hotfix1.zip -d project/crux-main
+
+          cat patches/v0.3-hotfix2/*.b64 | base64 -d > /tmp/crux-v03-hotfix2.zip
+          echo "55480eac4294e27a7dbf7fc82e4f40197ccbda7387139fd1ae0535ea515b3fad  /tmp/crux-v03-hotfix2.zip" | sha256sum -c -
+          unzip -q -o /tmp/crux-v03-hotfix2.zip -d project/crux-main
 
           cd project/crux-main
           chmod +x gradlew
