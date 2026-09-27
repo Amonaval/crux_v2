@@ -1,4 +1,4 @@
-name: Build Crux v0.2 pilot
+name: Build Crux v0.3 local brain
 
 on:
   push:
@@ -7,6 +7,7 @@ on:
       - 'crux-play-pilot.zip'
       - 'patches/v0.2/**'
       - 'patches/v0.2-hotfix.b64'
+      - 'patches/v0.3/**'
       - '.github/workflows/bootstrap.yml'
   workflow_dispatch:
 
@@ -16,27 +17,45 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify uploaded project archive
+      - name: Verify baseline and reconstruct Crux v0.3
         run: |
+          set -euo pipefail
           test -f crux-play-pilot.zip
           echo "4bbe2ec03f38c6ba7f942e27d0b3697c5487dd0a4a93f1c810d461f705630e2a  crux-play-pilot.zip" | sha256sum -c -
 
-      - name: Expand project and apply v0.2 patch
-        run: |
           mkdir project
           unzip -q crux-play-pilot.zip -d project
+
           cat patches/v0.2/*.b64 | base64 -d > /tmp/crux-v02-patch.zip
           echo "5ae395371844d9e391f878ee7a627199445b24ee9d8b226a4a5be01c5f4dd65e  /tmp/crux-v02-patch.zip" | sha256sum -c -
           unzip -q -o /tmp/crux-v02-patch.zip -d project/crux-main
+
           base64 -d patches/v0.2-hotfix.b64 > /tmp/crux-v02-hotfix.zip
           echo "479c38c91613f61f70c09d4b513d35e9f1e5866061dd6de505b085bba377abfc  /tmp/crux-v02-hotfix.zip" | sha256sum -c -
           unzip -q -o /tmp/crux-v02-hotfix.zip -d project/crux-main
+
+          cat patches/v0.3/*.b64 | base64 -d > /tmp/crux-v03-patch.zip
+          echo "e318a38da81664b3ca5a0af271f51a5c19c28e0265c0a34dfd490fc12a916f74  /tmp/crux-v03-patch.zip" | sha256sum -c -
+          unzip -q -o /tmp/crux-v03-patch.zip -d project/crux-main
+
           cd project/crux-main
           chmod +x gradlew
           printf "android.useAndroidX=true\nandroid.enableJetifier=true\n" >> gradle.properties
+
+      - name: Fetch pinned llama.cpp
+        run: |
+          set -euo pipefail
+          mkdir -p project/crux-main/third_party/llama.cpp
+          cd project/crux-main/third_party/llama.cpp
+          git init
+          git remote add origin https://github.com/ggml-org/llama.cpp.git
+          git fetch --depth 1 origin 136887b665180c13c6209a4ce0673637b6cd3afd
+          git checkout --detach FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "136887b665180c13c6209a4ce0673637b6cd3afd"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -45,8 +64,9 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      - name: Install Android SDK 36
+      - name: Install Android SDK, NDK and CMake
         run: |
+          set -euo pipefail
           SDKMANAGER="$(command -v sdkmanager || true)"
           if [ -z "$SDKMANAGER" ] && [ -n "${ANDROID_HOME:-}" ]; then
             SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -maxdepth 3 -type f -name sdkmanager 2>/dev/null | head -1)"
@@ -57,13 +77,18 @@ jobs:
           echo "Using sdkmanager: $SDKMANAGER"
           test -n "$SDKMANAGER"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
-          "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;35.0.0"
+          "$SDKMANAGER" \
+            "platform-tools" \
+            "platforms;android-36" \
+            "build-tools;35.0.0" \
+            "ndk;29.0.13113456" \
+            "cmake;3.31.6"
 
-      - name: Run unit tests
+      - name: Run hard-gated unit tests
         working-directory: project/crux-main
         run: ./gradlew testDebugUnitTest --no-daemon --stacktrace
 
-      - name: Build debug APK
+      - name: Build ARM64 debug APK with local llama.cpp
         working-directory: project/crux-main
         run: ./gradlew assembleDebug --no-daemon --stacktrace
 
@@ -74,13 +99,13 @@ jobs:
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: crux-v02-debug-apk
+          name: crux-v03-local-brain-apk
           path: project/crux-main/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
 
       - name: Upload unsigned release AAB
         uses: actions/upload-artifact@v4
         with:
-          name: crux-v02-release-aab-unsigned
+          name: crux-v03-release-aab-unsigned
           path: project/crux-main/app/build/outputs/bundle/release/app-release.aab
           retention-days: 30
